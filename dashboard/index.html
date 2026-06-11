@@ -1,0 +1,592 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>바로팜 · 운영 대시보드</title>
+
+<!-- 디자인 시스템: 토큰 + 컴포넌트 (원본 ~/claude) -->
+<link rel="stylesheet" href="../tokens.css" />
+<link rel="stylesheet" href="../components.css" />
+
+<style>
+  /* ===========================================================
+   * 대시보드 로컬 레이아웃 변수
+   * (구조적 치수만 — 색/타이포/spacing은 전부 tokens.css 사용)
+   * 응답 하단 매핑표에 리포트됨.
+   * =========================================================== */
+  :root {
+    --dash-sidebar-w: 248px;   /* 좌측 네비 폭 */
+    --dash-topbar-h:  64px;    /* 상단 앱바 높이 */
+    --dash-maxw:      1440px;  /* 메인 콘텐츠 최대폭 */
+  }
+
+  * { box-sizing: border-box; }
+  html, body { margin: 0; padding: 0; }
+  body {
+    font: var(--font-b3);
+    color: var(--color-text);
+    background: var(--color-bg-layout);
+    font-family: var(--font-family-default);
+    -webkit-font-smoothing: antialiased;
+  }
+  a { color: inherit; text-decoration: none; }
+
+  .app {
+    display: grid;
+    grid-template-columns: var(--dash-sidebar-w) 1fr;
+    min-height: 100vh;
+  }
+
+  /* ───────── 사이드바 ───────── */
+  .sidebar {
+    background: var(--color-bg-container);
+    border-right: 1px solid var(--color-border-secondary);
+    display: flex;
+    flex-direction: column;
+    position: sticky;
+    top: 0;
+    height: 100vh;
+  }
+  .sidebar-brand {
+    height: var(--dash-topbar-h);
+    display: flex;
+    align-items: center;
+    gap: var(--space-margin-xs);
+    padding: 0 var(--space-gap-lg);
+    border-bottom: 1px solid var(--color-border-secondary);
+    flex: 0 0 auto;
+  }
+  .sidebar-brand-mark {
+    width: 32px; height: 32px;
+    border-radius: var(--radius-md);
+    background: var(--color-primary);
+    color: var(--color-text-light);
+    display: grid; place-items: center;
+    flex: 0 0 auto;
+  }
+  .sidebar-brand-name { font: var(--font-h4-b); color: var(--color-text); }
+  .sidebar-brand-sub  { font: var(--font-b6); color: var(--color-text-tertiary); }
+
+  .nav { padding: var(--space-gap-md) var(--space-padding-sm); display: flex; flex-direction: column; gap: 2px; overflow-y: auto; }
+  .nav-label {
+    font: var(--font-h6);
+    color: var(--color-text-quaternary);
+    padding: var(--space-padding-sm) var(--space-padding-sm) var(--space-padding-xs);
+    letter-spacing: .04em;
+  }
+  .nav-item {
+    display: flex; align-items: center; gap: var(--space-padding-sm);
+    padding: var(--space-padding-sm);
+    border-radius: var(--radius-md);
+    color: var(--color-text-secondary);
+    font: var(--font-h5);
+    cursor: pointer;
+    transition: background .12s, color .12s;
+  }
+  .nav-item:hover { background: var(--color-fill-secondary); color: var(--color-text); }
+  .nav-item.is-active { background: var(--color-primary-bg); color: var(--color-primary-text); }
+  .nav-item.is-active .icon { color: var(--color-primary); }
+  .nav-item .icon { color: var(--color-text-tertiary); }
+  .nav-item-badge { margin-left: auto; }
+
+  .sidebar-foot { margin-top: auto; padding: var(--space-gap-md); border-top: 1px solid var(--color-border-secondary); }
+  .user-chip { display: flex; align-items: center; gap: var(--space-padding-sm); }
+  .avatar {
+    width: 36px; height: 36px; border-radius: var(--radius-pill);
+    background: var(--color-blue-2); color: var(--color-primary-text);
+    display: grid; place-items: center; font: var(--font-h6); flex: 0 0 auto;
+  }
+  .user-name { font: var(--font-h5); color: var(--color-text); }
+  .user-role { font: var(--font-b6); color: var(--color-text-tertiary); }
+
+  /* ───────── 메인 ───────── */
+  .main { display: flex; flex-direction: column; min-width: 0; }
+
+  .topbar {
+    height: var(--dash-topbar-h);
+    background: var(--color-bg-container);
+    border-bottom: 1px solid var(--color-border-secondary);
+    display: flex; align-items: center; gap: var(--space-gap-md);
+    padding: 0 var(--space-gap-lg);
+    position: sticky; top: 0; z-index: 10;
+  }
+  .topbar h1 { font: var(--font-h3-b); margin: 0; }
+  .topbar-spacer { flex: 1; }
+  .topbar .search { width: 280px; }
+
+  .content {
+    padding: var(--space-gap-lg);
+    max-width: var(--dash-maxw);
+    width: 100%;
+    margin: 0 auto;
+    display: flex; flex-direction: column; gap: var(--space-gap-lg);
+  }
+
+  .page-head { display: flex; align-items: flex-end; gap: var(--space-gap-md); flex-wrap: wrap; }
+  .page-head-title { font: var(--font-h2-b); margin: 0; }
+  .page-head-sub { font: var(--font-b3); color: var(--color-text-tertiary); margin: 4px 0 0; }
+  .page-head-actions { margin-left: auto; display: flex; gap: var(--space-margin-xs); }
+
+  /* KPI grid */
+  .kpi-grid { display: grid; grid-template-columns: repeat(4, 1fr); gap: var(--space-gap-md); }
+  .kpi { display: flex; flex-direction: column; gap: var(--space-padding-sm); }
+  .kpi-top { display: flex; align-items: center; justify-content: space-between; }
+  .kpi-ico {
+    width: 40px; height: 40px; border-radius: var(--radius-md);
+    display: grid; place-items: center; flex: 0 0 auto;
+  }
+  .kpi-ico--blue   { background: var(--color-blue-1);  color: var(--color-primary); }
+  .kpi-ico--green  { background: var(--color-green-1); color: var(--color-green-7); }
+  .kpi-ico--gold   { background: var(--color-gold-1);  color: var(--color-gold-7); }
+  .kpi-ico--volcano{ background: var(--color-volcano-1); color: var(--color-volcano-7); }
+  .kpi-label { font: var(--font-b4); color: var(--color-text-tertiary); }
+  .kpi-value { font: var(--font-h1-b); color: var(--color-text); }
+  .kpi-delta { display: inline-flex; align-items: center; gap: 2px; font: var(--font-b4); }
+  .kpi-delta--up   { color: var(--color-green-7); }
+  .kpi-delta--down { color: var(--color-volcano-7); }
+  .kpi-delta .icon { width: 16px; height: 16px; }
+  .kpi-foot { font: var(--font-b5); color: var(--color-text-quaternary); }
+
+  /* 2-col charts */
+  .grid-2 { display: grid; grid-template-columns: 1.6fr 1fr; gap: var(--space-gap-lg); align-items: start; }
+  .grid-main { display: grid; grid-template-columns: 1fr 360px; gap: var(--space-gap-lg); align-items: start; }
+
+  .card-head { display: flex; align-items: center; gap: var(--space-margin-xs); margin-bottom: var(--space-gap-md); }
+  .card-title { font: var(--font-h4-b); margin: 0; }
+  .card-head-meta { margin-left: auto; font: var(--font-b5); color: var(--color-text-tertiary); }
+
+  /* SVG 라인 차트 */
+  .chart-line { width: 100%; height: 220px; display: block; }
+  .chart-grid line { stroke: var(--color-border-secondary); stroke-width: 1; }
+  .chart-axis { font: var(--font-b6); fill: var(--color-text-quaternary); }
+  .chart-area { fill: var(--color-blue-1); }
+  .chart-stroke { fill: none; stroke: var(--color-primary); stroke-width: 2.5; stroke-linecap: round; stroke-linejoin: round; }
+  .chart-dot { fill: var(--color-bg-container); stroke: var(--color-primary); stroke-width: 2.5; }
+
+  /* 카테고리 막대 */
+  .bars { display: flex; flex-direction: column; gap: var(--space-gap-md); }
+  .bar-row { display: grid; grid-template-columns: 96px 1fr 56px; align-items: center; gap: var(--space-padding-sm); }
+  .bar-name { font: var(--font-b3); color: var(--color-text-secondary); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+  .bar-track { display: block; height: 10px; background: var(--color-fill-secondary); border-radius: var(--radius-pill); overflow: hidden; }
+  .bar-fill { display: block; height: 100%; border-radius: var(--radius-pill); }
+  .bar-val { font: var(--font-b4); color: var(--color-text); text-align: right; }
+
+  /* 테이블 */
+  .table-wrap { overflow-x: auto; }
+  table.data { width: 100%; border-collapse: collapse; font: var(--font-b3); }
+  table.data thead th {
+    text-align: left; font: var(--font-h6); color: var(--color-text-tertiary);
+    padding: var(--space-padding-sm); border-bottom: 1px solid var(--color-border);
+    white-space: nowrap;
+  }
+  table.data tbody td { padding: var(--space-padding-sm); border-bottom: 1px solid var(--color-border-secondary); color: var(--color-text-secondary); }
+  table.data tbody tr:hover { background: var(--color-fill-tertiary); }
+  table.data .cell-strong { color: var(--color-text); font: var(--font-h5); }
+  table.data .cell-num { text-align: right; font-variant-numeric: tabular-nums; }
+  .cell-store { display: flex; align-items: center; gap: var(--space-padding-xs); }
+  .store-dot { width: 28px; height: 28px; border-radius: var(--radius-pill); background: var(--color-fill-secondary); color: var(--color-text-tertiary); display: grid; place-items: center; flex: 0 0 auto; }
+
+  /* 인기상품 리스트 */
+  .rank-list { display: flex; flex-direction: column; gap: var(--space-gap-md); }
+  .rank-item { display: grid; grid-template-columns: 24px 1fr auto; align-items: center; gap: var(--space-padding-sm); }
+  .rank-no { font: var(--font-h5); color: var(--color-text-tertiary); text-align: center; }
+  .rank-no.is-top { color: var(--color-primary); }
+  .rank-body { min-width: 0; }
+  .rank-name { font: var(--font-h5); color: var(--color-text); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+  .rank-meter { height: 6px; background: var(--color-fill-secondary); border-radius: var(--radius-pill); margin-top: 6px; overflow: hidden; }
+  .rank-meter > span { display: block; height: 100%; background: var(--color-primary); border-radius: var(--radius-pill); }
+  .rank-val { font: var(--font-b4); color: var(--color-text-secondary); white-space: nowrap; }
+
+  /* 알림 */
+  .feed { display: flex; flex-direction: column; }
+  .feed-item { display: flex; gap: var(--space-padding-sm); padding: var(--space-padding-sm) 0; }
+  .feed-item + .feed-item { border-top: 1px solid var(--color-border-secondary); }
+  .feed-ico { width: 32px; height: 32px; border-radius: var(--radius-pill); display: grid; place-items: center; flex: 0 0 auto; }
+  .feed-ico--info { background: var(--color-blue-1); color: var(--color-primary); }
+  .feed-ico--warn { background: var(--color-gold-1); color: var(--color-gold-7); }
+  .feed-ico--ok   { background: var(--color-green-1); color: var(--color-green-7); }
+  .feed-ico--err  { background: var(--color-red-1); color: var(--color-error); }
+  .feed-txt { font: var(--font-b3); color: var(--color-text-secondary); }
+  .feed-txt b { color: var(--color-text); font: var(--font-h5); }
+  .feed-time { font: var(--font-b5); color: var(--color-text-quaternary); margin-top: 2px; }
+
+  /* 반응형 */
+  @media (max-width: 1100px) {
+    .kpi-grid { grid-template-columns: repeat(2, 1fr); }
+    .grid-2, .grid-main { grid-template-columns: 1fr; }
+  }
+  @media (max-width: 720px) {
+    .app { grid-template-columns: 1fr; }
+    .sidebar { display: none; }
+    .topbar .search { display: none; }
+    .kpi-grid { grid-template-columns: 1fr; }
+  }
+</style>
+</head>
+<body>
+<div class="app">
+
+  <!-- ════════ 사이드바 ════════ -->
+  <aside class="sidebar">
+    <div class="sidebar-brand">
+      <span class="sidebar-brand-mark"><svg class="icon" aria-hidden="true"><use href="../icons.svg#pills"/></svg></span>
+      <span>
+        <div class="sidebar-brand-name">바로팜</div>
+        <div class="sidebar-brand-sub">운영 콘솔</div>
+      </span>
+    </div>
+
+    <nav class="nav">
+      <div class="nav-label">개요</div>
+      <a class="nav-item is-active">
+        <svg class="icon icon--sm" aria-hidden="true"><use href="../icons.svg#home01"/></svg> 대시보드
+      </a>
+      <a class="nav-item">
+        <svg class="icon icon--sm" aria-hidden="true"><use href="../icons.svg#order-list"/></svg> 주문 관리
+        <span class="badge badge--primary nav-item-badge">12</span>
+      </a>
+      <a class="nav-item">
+        <svg class="icon icon--sm" aria-hidden="true"><use href="../icons.svg#pill-shape"/></svg> 상품
+      </a>
+      <a class="nav-item">
+        <svg class="icon icon--sm" aria-hidden="true"><use href="../icons.svg#store"/></svg> 약국
+      </a>
+
+      <div class="nav-label">정산 · 분석</div>
+      <a class="nav-item">
+        <svg class="icon icon--sm" aria-hidden="true"><use href="../icons.svg#money"/></svg> 정산
+      </a>
+      <a class="nav-item">
+        <svg class="icon icon--sm" aria-hidden="true"><use href="../icons.svg#file-chart"/></svg> 리포트
+      </a>
+      <a class="nav-item">
+        <svg class="icon icon--sm" aria-hidden="true"><use href="../icons.svg#settings-04"/></svg> 설정
+      </a>
+    </nav>
+
+    <div class="sidebar-foot">
+      <div class="user-chip">
+        <span class="avatar">진</span>
+        <span>
+          <div class="user-name">최진희</div>
+          <div class="user-role">디자인팀 · Admin</div>
+        </span>
+      </div>
+    </div>
+  </aside>
+
+  <!-- ════════ 메인 ════════ -->
+  <div class="main">
+    <header class="topbar">
+      <h1>대시보드</h1>
+      <span class="topbar-spacer"></span>
+      <div class="search">
+        <span class="search-icon"><svg class="icon icon--sm" aria-hidden="true"><use href="../icons.svg#search"/></svg></span>
+        <input class="search-input" type="text" placeholder="주문번호 · 약국 검색" />
+      </div>
+      <span class="badge-anchor">
+        <button class="btn-icon btn-icon--circle" aria-label="알림">
+          <svg class="icon icon--sm" aria-hidden="true"><use href="../icons.svg#bell"/></svg>
+        </button>
+        <span class="badge badge--dot badge--primary"></span>
+      </span>
+      <button class="btn btn--secondary btn--md">
+        <svg class="icon icon--sm" aria-hidden="true"><use href="../icons.svg#download"/></svg> 내보내기
+      </button>
+    </header>
+
+    <main class="content">
+
+      <!-- 페이지 헤더 -->
+      <div class="page-head">
+        <div>
+          <h2 class="page-head-title">안녕하세요, 진희님 👋</h2>
+          <p class="page-head-sub">2026년 6월 11일 · 오늘의 운영 현황을 한눈에 확인하세요</p>
+        </div>
+        <div class="page-head-actions">
+          <button class="btn btn--tertiary btn--md">
+            <svg class="icon icon--sm" aria-hidden="true"><use href="../icons.svg#calendar"/></svg> 최근 7일
+          </button>
+          <button class="btn btn--primary btn--md">
+            <svg class="icon icon--sm" aria-hidden="true"><use href="../icons.svg#plus"/></svg> 새 주문
+          </button>
+        </div>
+      </div>
+
+      <!-- KPI -->
+      <section class="kpi-grid">
+        <div class="card kpi">
+          <div class="kpi-top">
+            <span class="kpi-ico kpi-ico--green"><svg class="icon icon--sm" aria-hidden="true"><use href="../icons.svg#money"/></svg></span>
+            <span class="kpi-delta kpi-delta--up"><svg class="icon" aria-hidden="true"><use href="../icons.svg#arrow-narrow-up"/></svg> 8.2%</span>
+          </div>
+          <div>
+            <div class="kpi-label">오늘 매출</div>
+            <div class="kpi-value">₩12,480,000</div>
+          </div>
+          <div class="kpi-foot">전일 ₩11,530,000</div>
+        </div>
+
+        <div class="card kpi">
+          <div class="kpi-top">
+            <span class="kpi-ico kpi-ico--blue"><svg class="icon icon--sm" aria-hidden="true"><use href="../icons.svg#cart"/></svg></span>
+            <span class="kpi-delta kpi-delta--up"><svg class="icon" aria-hidden="true"><use href="../icons.svg#arrow-narrow-up"/></svg> 12.5%</span>
+          </div>
+          <div>
+            <div class="kpi-label">신규 주문</div>
+            <div class="kpi-value">342건</div>
+          </div>
+          <div class="kpi-foot">처리 대기 12건</div>
+        </div>
+
+        <div class="card kpi">
+          <div class="kpi-top">
+            <span class="kpi-ico kpi-ico--gold"><svg class="icon icon--sm" aria-hidden="true"><use href="../icons.svg#store"/></svg></span>
+            <span class="kpi-delta kpi-delta--up"><svg class="icon" aria-hidden="true"><use href="../icons.svg#arrow-narrow-up"/></svg> 3.1%</span>
+          </div>
+          <div>
+            <div class="kpi-label">활성 약국</div>
+            <div class="kpi-value">1,287곳</div>
+          </div>
+          <div class="kpi-foot">이번 주 신규 +39</div>
+        </div>
+
+        <div class="card kpi">
+          <div class="kpi-top">
+            <span class="kpi-ico kpi-ico--volcano"><svg class="icon icon--sm" aria-hidden="true"><use href="../icons.svg#package-x"/></svg></span>
+            <span class="kpi-delta kpi-delta--down"><svg class="icon" aria-hidden="true"><use href="../icons.svg#arrow-narrow-down"/></svg> 2.4%</span>
+          </div>
+          <div>
+            <div class="kpi-label">반품 · 취소</div>
+            <div class="kpi-value">18건</div>
+          </div>
+          <div class="kpi-foot">반품률 0.9%</div>
+        </div>
+      </section>
+
+      <!-- 차트 2개 -->
+      <section class="grid-2">
+        <!-- 매출 추이 -->
+        <div class="card card--lg">
+          <div class="card-head">
+            <svg class="icon icon--sm" aria-hidden="true" style="color:var(--color-primary)"><use href="../icons.svg#line-chart-up-02"/></svg>
+            <h3 class="card-title">주간 매출 추이</h3>
+            <span class="card-head-meta">단위: 백만원</span>
+          </div>
+          <svg class="chart-line" viewBox="0 0 700 220" preserveAspectRatio="none" role="img" aria-label="주간 매출 추이">
+            <g class="chart-grid">
+              <line x1="0" y1="20"  x2="700" y2="20"/>
+              <line x1="0" y1="70"  x2="700" y2="70"/>
+              <line x1="0" y1="120" x2="700" y2="120"/>
+              <line x1="0" y1="170" x2="700" y2="170"/>
+            </g>
+            <!-- area -->
+            <path class="chart-area" d="M0,150 L116,120 L233,135 L350,80 L466,95 L583,55 L700,40 L700,200 L0,200 Z"/>
+            <!-- line -->
+            <path class="chart-stroke" d="M0,150 L116,120 L233,135 L350,80 L466,95 L583,55 L700,40"/>
+            <!-- dots -->
+            <circle class="chart-dot" cx="0"   cy="150" r="4"/>
+            <circle class="chart-dot" cx="116" cy="120" r="4"/>
+            <circle class="chart-dot" cx="233" cy="135" r="4"/>
+            <circle class="chart-dot" cx="350" cy="80"  r="4"/>
+            <circle class="chart-dot" cx="466" cy="95"  r="4"/>
+            <circle class="chart-dot" cx="583" cy="55"  r="4"/>
+            <circle class="chart-dot" cx="700" cy="40"  r="4"/>
+            <g class="chart-axis">
+              <text x="0"   y="216">월</text>
+              <text x="112" y="216">화</text>
+              <text x="229" y="216">수</text>
+              <text x="346" y="216">목</text>
+              <text x="462" y="216">금</text>
+              <text x="579" y="216">토</text>
+              <text x="686" y="216">일</text>
+            </g>
+          </svg>
+        </div>
+
+        <!-- 카테고리 비중 -->
+        <div class="card card--lg">
+          <div class="card-head">
+            <svg class="icon icon--sm" aria-hidden="true" style="color:var(--color-primary)"><use href="../icons.svg#horizontal-bar-chart-01"/></svg>
+            <h3 class="card-title">카테고리별 주문 비중</h3>
+          </div>
+          <div class="bars">
+            <div class="bar-row">
+              <span class="bar-name">전문의약품</span>
+              <span class="bar-track"><span class="bar-fill" style="width:82%;background:var(--color-primary)"></span></span>
+              <span class="bar-val">42%</span>
+            </div>
+            <div class="bar-row">
+              <span class="bar-name">일반의약품</span>
+              <span class="bar-track"><span class="bar-fill" style="width:54%;background:var(--color-cyan-6)"></span></span>
+              <span class="bar-val">27%</span>
+            </div>
+            <div class="bar-row">
+              <span class="bar-name">건강기능식품</span>
+              <span class="bar-track"><span class="bar-fill" style="width:36%;background:var(--color-green-6)"></span></span>
+              <span class="bar-val">18%</span>
+            </div>
+            <div class="bar-row">
+              <span class="bar-name">의약외품</span>
+              <span class="bar-track"><span class="bar-fill" style="width:18%;background:var(--color-gold-6)"></span></span>
+              <span class="bar-val">9%</span>
+            </div>
+            <div class="bar-row">
+              <span class="bar-name">기타</span>
+              <span class="bar-track"><span class="bar-fill" style="width:8%;background:var(--color-grey-5)"></span></span>
+              <span class="bar-val">4%</span>
+            </div>
+          </div>
+        </div>
+      </section>
+
+      <!-- 테이블 + 우측 패널 -->
+      <section class="grid-main">
+        <!-- 최근 주문 -->
+        <div class="card card--lg">
+          <div class="card-head">
+            <h3 class="card-title">최근 주문</h3>
+            <a class="card-head-meta" style="color:var(--color-primary-text);cursor:pointer">전체 보기 ›</a>
+          </div>
+          <div class="table-wrap">
+            <table class="data">
+              <thead>
+                <tr>
+                  <th>주문번호</th>
+                  <th>약국</th>
+                  <th>상품</th>
+                  <th class="cell-num">금액</th>
+                  <th>상태</th>
+                  <th>일시</th>
+                </tr>
+              </thead>
+              <tbody>
+                <tr>
+                  <td class="cell-strong">#BP-24817</td>
+                  <td><span class="cell-store"><span class="store-dot"><svg class="icon icon--sm" aria-hidden="true"><use href="../icons.svg#store"/></svg></span>건강한약국</span></td>
+                  <td>타이레놀500 외 4건</td>
+                  <td class="cell-num cell-strong">₩284,000</td>
+                  <td><span class="tag tag--success tag--pill">배송완료</span></td>
+                  <td>10:24</td>
+                </tr>
+                <tr>
+                  <td class="cell-strong">#BP-24816</td>
+                  <td><span class="cell-store"><span class="store-dot"><svg class="icon icon--sm" aria-hidden="true"><use href="../icons.svg#store"/></svg></span>365연중약국</span></td>
+                  <td>판콜에이 외 11건</td>
+                  <td class="cell-num cell-strong">₩612,500</td>
+                  <td><span class="tag tag--primary tag--pill">배송중</span></td>
+                  <td>09:58</td>
+                </tr>
+                <tr>
+                  <td class="cell-strong">#BP-24815</td>
+                  <td><span class="cell-store"><span class="store-dot"><svg class="icon icon--sm" aria-hidden="true"><use href="../icons.svg#store"/></svg></span>우리동네약국</span></td>
+                  <td>아로나민골드 외 2건</td>
+                  <td class="cell-num cell-strong">₩97,800</td>
+                  <td><span class="tag tag--warning tag--pill">결제대기</span></td>
+                  <td>09:41</td>
+                </tr>
+                <tr>
+                  <td class="cell-strong">#BP-24814</td>
+                  <td><span class="cell-store"><span class="store-dot"><svg class="icon icon--sm" aria-hidden="true"><use href="../icons.svg#store"/></svg></span>참약사약국</span></td>
+                  <td>겔포스엠 외 7건</td>
+                  <td class="cell-num cell-strong">₩431,200</td>
+                  <td><span class="tag tag--success tag--pill">배송완료</span></td>
+                  <td>09:12</td>
+                </tr>
+                <tr>
+                  <td class="cell-strong">#BP-24813</td>
+                  <td><span class="cell-store"><span class="store-dot"><svg class="icon icon--sm" aria-hidden="true"><use href="../icons.svg#store"/></svg></span>온누리약국</span></td>
+                  <td>인사돌플러스 외 1건</td>
+                  <td class="cell-num cell-strong">₩58,400</td>
+                  <td><span class="tag tag--danger tag--pill">취소</span></td>
+                  <td>08:47</td>
+                </tr>
+              </tbody>
+            </table>
+          </div>
+        </div>
+
+        <!-- 우측: 인기상품 + 알림 -->
+        <div style="display:flex;flex-direction:column;gap:var(--space-gap-lg)">
+          <div class="card card--lg">
+            <div class="card-head">
+              <svg class="icon icon--sm" aria-hidden="true" style="color:var(--color-gold-6)"><use href="../icons.svg#trophy"/></svg>
+              <h3 class="card-title">인기 상품 Top 5</h3>
+            </div>
+            <div class="rank-list">
+              <div class="rank-item">
+                <span class="rank-no is-top">1</span>
+                <span class="rank-body">
+                  <span class="rank-name">타이레놀정 500mg</span>
+                  <span class="rank-meter"><span style="width:100%"></span></span>
+                </span>
+                <span class="rank-val">1,284</span>
+              </div>
+              <div class="rank-item">
+                <span class="rank-no is-top">2</span>
+                <span class="rank-body">
+                  <span class="rank-name">아로나민골드</span>
+                  <span class="rank-meter"><span style="width:78%"></span></span>
+                </span>
+                <span class="rank-val">1,002</span>
+              </div>
+              <div class="rank-item">
+                <span class="rank-no is-top">3</span>
+                <span class="rank-body">
+                  <span class="rank-name">판콜에이내복액</span>
+                  <span class="rank-meter"><span style="width:61%"></span></span>
+                </span>
+                <span class="rank-val">784</span>
+              </div>
+              <div class="rank-item">
+                <span class="rank-no">4</span>
+                <span class="rank-body">
+                  <span class="rank-name">겔포스엠</span>
+                  <span class="rank-meter"><span style="width:47%"></span></span>
+                </span>
+                <span class="rank-val">602</span>
+              </div>
+              <div class="rank-item">
+                <span class="rank-no">5</span>
+                <span class="rank-body">
+                  <span class="rank-name">인사돌플러스</span>
+                  <span class="rank-meter"><span style="width:33%"></span></span>
+                </span>
+                <span class="rank-val">421</span>
+              </div>
+            </div>
+          </div>
+
+          <div class="card card--lg">
+            <div class="card-head">
+              <svg class="icon icon--sm" aria-hidden="true" style="color:var(--color-primary)"><use href="../icons.svg#bell-ringing"/></svg>
+              <h3 class="card-title">알림</h3>
+            </div>
+            <div class="feed">
+              <div class="feed-item">
+                <span class="feed-ico feed-ico--warn"><svg class="icon icon--sm" aria-hidden="true"><use href="../icons.svg#alert-triangle"/></svg></span>
+                <span class="feed-txt"><b>재고 부족</b> — 판콜에이내복액 잔여 24개<div class="feed-time">5분 전</div></span>
+              </div>
+              <div class="feed-item">
+                <span class="feed-ico feed-ico--ok"><svg class="icon icon--sm" aria-hidden="true"><use href="../icons.svg#check-circle"/></svg></span>
+                <span class="feed-txt"><b>정산 완료</b> — 6월 1주차 ₩48,200,000<div class="feed-time">1시간 전</div></span>
+              </div>
+              <div class="feed-item">
+                <span class="feed-ico feed-ico--info"><svg class="icon icon--sm" aria-hidden="true"><use href="../icons.svg#user-plus-01"/></svg></span>
+                <span class="feed-txt"><b>신규 약국</b> — 미소드림약국 가입<div class="feed-time">3시간 전</div></span>
+              </div>
+              <div class="feed-item">
+                <span class="feed-ico feed-ico--err"><svg class="icon icon--sm" aria-hidden="true"><use href="../icons.svg#return"/></svg></span>
+                <span class="feed-txt"><b>반품 요청</b> — #BP-24790 검수 대기<div class="feed-time">어제</div></span>
+              </div>
+            </div>
+          </div>
+        </div>
+      </section>
+
+    </main>
+  </div>
+</div>
+</body>
+</html>
